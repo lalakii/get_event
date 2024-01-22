@@ -1,0 +1,35 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'cn.lalaki.touch_event'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "cn.lalaki.touch_event"
+        minSdk 24
+        //noinspection EditedTargetSdkVersion
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    buildTypes {
+        release {
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    def shizuku_version = "13.1.5"
+    implementation "dev.rikka.shizuku:api:$shizuku_version"
+    // Add this line if you want to support Shizuku
+    implementation "dev.rikka.shizuku:provider:$shizuku_version"
+    // https://mvnrepository.com/artifact/com.google.guava/guava
+    implementation("com.google.guava:guava:33.0.0-android")
+}
