@@ -1,64 +1,64 @@
 package cn.lalaki.touch_event;
 
-import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.ComponentName;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.os.IBinder;
+import android.os.RemoteException;
+import android.util.Log;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ScrollView;
-import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
-import com.google.common.io.ByteStreams;
-import java.io.File;
-import java.io.FileOutputStream;
+
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.ServerSocket;
 
 import rikka.shizuku.Shizuku;
+import rikka.shizuku.ShizukuProvider;
 
-public class MainActivity extends Activity implements View.OnClickListener, Shizuku.OnRequestPermissionResultListener {
-    private boolean permissionIsGranted = false;
-    private TextView te_data;
-    private File rish;
+public class MainActivity extends Activity implements Runnable, View.OnClickListener, Shizuku.OnRequestPermissionResultListener, ServiceConnection {
     private ScrollView sc;
+    private TextView showData;
+    private Intent shizukuIntent;
+    private boolean isRunning = false;
+    private boolean permissionIsGranted = false;
+    private Shizuku.UserServiceArgs mUserServiceArgs;
+    private final int port = 34567;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
         sc = findViewById(R.id.scroll);
-        te_data = findViewById(R.id.touch_data);
-        File external = getFilesDir();
-        if (external != null) {
-            String path = external.getAbsolutePath() + "/private/";
-            if (new File(path).mkdirs()) {
-                Toast.makeText(this, "create private dir is done.", Toast.LENGTH_SHORT).show();
-            }
-            rish = new File(path + "rish");
-            if (!rish.exists()) {
-                String[] files = {"rish_shizuku.dex", "rish"};
-                for (String name : files) {
-                    try (InputStream rish_dex = getAssets().open(name)) {
-                        try (FileOutputStream out = new FileOutputStream(path + name)) {
-                            ByteStreams.copy(rish_dex, out);
-                        }
-                    } catch (IOException ignored) {
-                    }
-                }
-            }
-        }
+        showData = findViewById(R.id.touch_data);
+        shizukuIntent = getPackageManager().getLaunchIntentForPackage(ShizukuProvider.MANAGER_APPLICATION_ID);
+        mUserServiceArgs = new Shizuku.UserServiceArgs(new ComponentName(getPackageName(), GetEventService.class.getName()))
+                .daemon(false)
+                .debuggable(false)
+                .processNameSuffix("lalaki_getevent")
+                .version(1);
+    }
+
+    @Override
+    public void onRequestPermissionResult(int requestCode, int grantResult) {
+        permissionIsGranted = grantResult == 0;
     }
 
     @Override
     protected void onResume() {
-        Intent shizukuIntent = getPackageManager().getLaunchIntentForPackage("moe.shizuku.privileged.api");
         if (shizukuIntent != null) {
             if (Shizuku.pingBinder()) {
                 permissionIsGranted = Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED;
                 if (permissionIsGranted) {
                     findViewById(R.id.tips).setAlpha(0F);
+                    Shizuku.removeRequestPermissionResultListener(this);
                 } else {
                     Shizuku.addRequestPermissionResultListener(this);
                     Shizuku.requestPermission(0);
@@ -69,54 +69,64 @@ public class MainActivity extends Activity implements View.OnClickListener, Shiz
     }
 
     @Override
-    public void onRequestPermissionResult(int requestCode, int grantResult) {
-        permissionIsGranted = grantResult == 0;
-    }
-    private boolean isRunning = false;
-    private final ProcessBuilder builder = new ProcessBuilder();
-    @Override
     public void onClick(View view) {
-        if (!permissionIsGranted) return;
-        if (isRunning || !((Switch) view).isChecked()) {
+        if (isRunning) {
             Toast.makeText(this, R.string.end, Toast.LENGTH_SHORT).show();
             finish();
-            System.exit(0);
+            return;
         }
-        if (rish.exists()) {
-            isRunning = !isRunning;
-            Toast.makeText(this, R.string.touch_tips, Toast.LENGTH_SHORT).show();
-            new Thread(() -> {
-                try {
-                    String[] cmdline = {"sh", rish.getAbsolutePath(), "-c", "getevent -t"};
-                    builder.environment().put("RISH_APPLICATION_ID", getPackageName());
-                    InputStream in = builder.command(cmdline).start().getInputStream();
-                    StringBuilder sb = new StringBuilder();
-                    byte[] data = new byte[64];
-                    while (isRunning) {
-                        try {
-                            ByteStreams.readFully(in, data);
-                            onData(sb, data);
-                        } catch (IOException e) {
-                            runOnUiThread(() -> te_data.setText(e.getLocalizedMessage()));
-                        }
+        if (!permissionIsGranted) return;
+        isRunning = true;
+        new Thread(this).start();
+        Shizuku.bindUserService(mUserServiceArgs, this);
+        ((Button) view).setText(R.string.stop);
+        Toast.makeText(this, R.string.touch_tips, Toast.LENGTH_SHORT).show();
+    }
+
+    // 进程间通信，如果不理解此处为什么要用到socket，请百度
+    @Override
+    public void run() {
+        try (ServerSocket server = new ServerSocket(port)) {
+            while (isRunning) {
+                BufferedReader reader = new BufferedReader(new InputStreamReader(server.accept().getInputStream()));
+                StringBuilder sb = new StringBuilder();
+                while (isRunning) {
+                    String line = reader.readLine();
+                    sb.append(line).append('\n');
+                    if (sb.length() > 4096) {
+                        sb.delete(0, 1024);
+                        runOnUiThread(() -> {
+                            showData.setText(sb);
+                            sc.fullScroll(View.FOCUS_DOWN);
+                        });
                     }
-                } catch (IOException e) {
-                    runOnUiThread(() -> te_data.setText(e.getLocalizedMessage()));
+                    Log.d(getPackageName(), line);
                 }
-            }).start();
+            }
+        } catch (IOException ignored) {
         }
     }
 
-    @SuppressLint("SetTextI18n")
-    public void onData(StringBuilder sb, byte[] data) {
-        sb.append(new String(data));
-        int len = sb.length();
-        if (len > 2048) {
-            sb.delete(0, 1024);
-            runOnUiThread(() -> {
-                te_data.setText(sb + "\n\n\n\n\n\n");
-                sc.fullScroll(View.FOCUS_DOWN);
-            });
+    @Override
+    public void onServiceConnected(ComponentName name, IBinder service) {
+        if (service != null && service.pingBinder()) {
+            IGetEventService iUserService = IGetEventService.Stub.asInterface(service);
+            // getevent 进程
+            try {
+                iUserService.getEvent(port);
+            } catch (RemoteException ignored) {
+            }
         }
+    }
+
+    @Override
+    protected void onDestroy() {
+        isRunning = false;
+        Shizuku.unbindUserService(mUserServiceArgs, this, true);
+        super.onDestroy();
+    }
+
+    @Override
+    public void onServiceDisconnected(ComponentName name) {
     }
 }

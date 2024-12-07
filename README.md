@@ -1,4 +1,4 @@
-# Android GetEvent
+# Android GetEvent V2
 
 [English](README_en.md) | [中文](README.md)
 
@@ -6,6 +6,6 @@
 
 读取到的数据还需要解析，我只实现到这一步，有功能需求自行完善。
 
-<img src="./video/demo.gif" width="300"/>
+<img src="./video/demo_v2.gif" width="300"/>
 
 ## By lalaki.cn

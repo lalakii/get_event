@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
@@ -7,13 +8,16 @@
         android:id="@+id/scroll"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_above="@id/switcher">
+        android:layout_below="@id/header"
+        android:layout_marginTop="-20dp">
 
         <TextView
             android:id="@+id/touch_data"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="10sp" />
+            android:textSize="9sp"
+            android:typeface="monospace"
+            tools:ignore="SmallSp" />
     </ScrollView>
 
     <TextView
@@ -23,15 +27,31 @@
         android:layout_centerInParent="true"
         android:text="@string/need_permission" />
 
-    <Switch
-        android:id="@+id/switcher"
-        android:layout_width="wrap_content"
+    <RelativeLayout
+        android:id="@+id/header"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@id/tips"
-        android:layout_centerHorizontal="true"
-        android:minHeight="48dp"
-        android:onClick="onClick"
-        android:text="@string/start"
-        android:textSize="22sp" />
+        android:background="@android:color/black">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerVertical="true"
+            android:layout_marginStart="12dp"
+            android:text="@string/app_name"
+            android:textSize="24sp" />
+
+        <Button
+            android:id="@+id/button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_marginEnd="12dp"
+            android:minHeight="48dp"
+            android:onClick="onClick"
+            android:text="@string/start"
+            android:textSize="22sp"
+            tools:ignore="RelativeOverlap" />
+    </RelativeLayout>
 
 </RelativeLayout>

@@ -4,4 +4,5 @@
     <string name="need_permission">需要安装或激活Shizuku、并授予相应权限</string>
     <string name="touch_tips">此时在屏幕任意位置触摸可查看事件</string>
     <string name="end">退出程序</string>
+    <string name="stop">停止</string>
 </resources>
