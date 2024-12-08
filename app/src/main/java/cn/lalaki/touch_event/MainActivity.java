@@ -53,16 +53,14 @@ public class MainActivity extends Activity implements Runnable, View.OnClickList
 
     @Override
     protected void onResume() {
-        if (shizukuIntent != null) {
-            if (Shizuku.pingBinder()) {
-                permissionIsGranted = Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED;
-                if (permissionIsGranted) {
-                    findViewById(R.id.tips).setAlpha(0F);
-                    Shizuku.removeRequestPermissionResultListener(this);
-                } else {
-                    Shizuku.addRequestPermissionResultListener(this);
-                    Shizuku.requestPermission(0);
-                }
+        if (shizukuIntent != null && Shizuku.pingBinder()) {
+            permissionIsGranted = Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED;
+            if (permissionIsGranted) {
+                findViewById(R.id.tips).setAlpha(0F);
+                Shizuku.removeRequestPermissionResultListener(this);
+            } else {
+                Shizuku.addRequestPermissionResultListener(this);
+                Shizuku.requestPermission(0);
             }
         }
         super.onResume();
@@ -77,10 +75,15 @@ public class MainActivity extends Activity implements Runnable, View.OnClickList
         }
         if (!permissionIsGranted) return;
         isRunning = true;
-        new Thread(this).start();
-        Shizuku.bindUserService(mUserServiceArgs, this);
+        bindService();
         ((Button) view).setText(R.string.stop);
         Toast.makeText(this, R.string.touch_tips, Toast.LENGTH_SHORT).show();
+    }
+
+    // 绑定服务
+    private void bindService() {
+        new Thread(this).start();// Socket服务端
+        Shizuku.bindUserService(mUserServiceArgs, this);
     }
 
     // 进程间通信，如果不理解此处为什么要用到socket，请百度
@@ -88,18 +91,18 @@ public class MainActivity extends Activity implements Runnable, View.OnClickList
     public void run() {
         try (ServerSocket server = new ServerSocket(port)) {
             while (isRunning) {
-                BufferedReader reader = new BufferedReader(new InputStreamReader(server.accept().getInputStream()));
+                BufferedReader br = new BufferedReader(new InputStreamReader(server.accept().getInputStream()));
                 StringBuilder sb = new StringBuilder();
                 while (isRunning) {
-                    String line = reader.readLine();
+                    String line = br.readLine();
                     sb.append(line).append('\n');
-                    if (sb.length() > 4096) {
-                        sb.delete(0, 1024);
-                        runOnUiThread(() -> {
-                            showData.setText(sb);
-                            sc.fullScroll(View.FOCUS_DOWN);
-                        });
+                    while (isRunning && sb.length() > 4096) {
+                        sb.delete(0, 1);
                     }
+                    runOnUiThread(() -> {
+                        showData.setText(sb);
+                        sc.fullScroll(View.FOCUS_DOWN);
+                    });
                     Log.d(getPackageName(), line);
                 }
             }
@@ -128,5 +131,6 @@ public class MainActivity extends Activity implements Runnable, View.OnClickList
 
     @Override
     public void onServiceDisconnected(ComponentName name) {
+        isRunning = false;
     }
 }

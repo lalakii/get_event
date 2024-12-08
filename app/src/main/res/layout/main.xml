@@ -50,7 +50,7 @@
             android:minHeight="48dp"
             android:onClick="onClick"
             android:text="@string/start"
-            android:textSize="22sp"
+            android:textSize="18sp"
             tools:ignore="RelativeOverlap" />
     </RelativeLayout>
 
